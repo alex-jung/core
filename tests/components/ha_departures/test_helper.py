@@ -1,0 +1,357 @@
+"""Tests for the helper functions in ha_departures."""
+
+from datetime import datetime
+from unittest.mock import Mock
+
+from apyefa import Departure, Line, TransportType
+import pytest
+
+from homeassistant.components.ha_departures.helper import (
+    UnstableDepartureTime,
+    compare_line_ids,
+    create_unique_id,
+    filter_by_line_id,
+    filter_identical_departures,
+    get_unique_lines,
+    line_hash,
+    replace_year_in_id,
+    transport_to_str,
+)
+
+
+def get_mock_departure(planned, estimated, line_id="line1"):
+    """Create a mock Departure object."""
+    departure = Mock(spec=Departure)
+    departure.planned_time = planned
+    departure.estimated_time = estimated
+    departure.line_id = line_id
+
+    return departure
+
+
+def test_transport_to_str() -> None:
+    """Test transport_to_str function."""
+    assert transport_to_str(TransportType.CITY_BUS) == "Bus"
+    assert transport_to_str(TransportType.REGIONAL_BUS) == "Reginal Bus"
+    assert transport_to_str(TransportType.EXPRESS_BUS) == "Express Bus"
+    assert transport_to_str(TransportType.SUBWAY) == "U-Bahn"
+    assert transport_to_str(TransportType.TRAM) == "Tram"
+    assert transport_to_str(TransportType.TRAIN) == "Zug"
+    assert transport_to_str(TransportType.SUBURBAN) == "S-Bahn"
+    assert transport_to_str(None) == "Unknown"  # Test for None case
+
+
+def test_line_hash() -> None:
+    """Test line_hash function."""
+
+    line = Mock()
+    line.id = "123"
+
+    assert line_hash(line) == str(hash("123"))  # Check if the hash matches
+
+
+@pytest.mark.parametrize(
+    ("line_dict", "expected_id"),
+    [
+        (
+            {
+                "id": "123",
+                "name": "mock name",
+                "number": "42",
+                "product": {"class": 1},
+                "description": "mock description",
+                "destination": {
+                    "id": "456",
+                    "name": "mock destination",
+                    "type": "address",
+                },
+            },
+            "test-hub-123-1-456",
+        ),
+        (
+            {
+                "id": "van:02067: :R:j25",
+                "name": "mock name",
+                "number": "25",
+                "product": {"class": 2},
+                "description": "mock description",
+                "destination": {
+                    "id": "789",
+                    "name": "mock destination",
+                    "type": "address",
+                },
+            },
+            "test-hub-van:02067: :R:jxx-2-789",
+        ),  # year replaced with xx
+    ],
+)
+def test_create_unique_id_line_instance(line_dict, expected_id) -> None:
+    """Test create_unique_id function."""
+    line = Mock(Line)
+    line.id = "123"
+    line.product = "bus"
+    line.destination = Mock()
+    line.destination.id = "456"
+
+    hub_name = "Test Hub"
+
+    unique_id = f"test-hub-{line.id}-bus-456"
+    assert create_unique_id(line, hub_name) == unique_id
+    assert create_unique_id(line_dict, hub_name) == expected_id
+
+
+def test_create_unique_id_line_default_hub_name() -> None:
+    """Test create_unique_id function."""
+    line = Mock(Line)
+    line.id = "123"
+    line.product = "bus"
+    line.destination = Mock()
+    line.destination.id = "456"
+
+    hub_name = None
+
+    unique_id = f"unknown-hub-{line.id}-bus-456"
+    assert create_unique_id(line, hub_name) == unique_id
+
+
+def test_create_unique_id_invalid_type() -> None:
+    """Test create_unique_id function with invalid type."""
+    with pytest.raises(
+        ValueError, match="Expected dict or Line object, got <class 'str'>"
+    ):
+        create_unique_id("invalid_type", "my_hub")
+
+
+def test_filter_by_line_id_no_line_id_provided() -> None:
+    """Test filter_by_line_id function with no line_id provided."""
+    departures = [Mock(line_id="line1"), Mock(line_id="line2")]
+    filtered_departures = filter_by_line_id(departures, "")
+
+    assert len(filtered_departures) == 2  # Should return all departures
+
+
+def test_filter_by_line_id_ignore_year() -> None:
+    """Test filter_by_line_id function."""
+    departures = [
+        Mock(line_id="van:02067: :R:j20"),
+        Mock(line_id="van:02067: :R:j21"),
+        Mock(line_id="van:02067: :R:j24"),
+        Mock(line_id="van:11111: :R:j25"),
+    ]
+    filtered_departures = filter_by_line_id(departures, "van:02067: :R:j25")
+    assert len(filtered_departures) == 3
+    assert filtered_departures[0].line_id == "van:02067: :R:j20"
+    assert filtered_departures[1].line_id == "van:02067: :R:j21"
+    assert filtered_departures[2].line_id == "van:02067: :R:j24"
+
+
+def test_filter_identical_departures() -> None:
+    """Test filter_by_line_id with identical departures."""
+    departures = [
+        Mock(
+            line_id="line1", planned_time="2023-10-01T12:00:00Z"
+        ),  # identical time and line_id
+        Mock(
+            line_id="line1", planned_time="2023-10-01T12:00:00Z"
+        ),  # identical time and line_id
+        Mock(line_id="line2", planned_time="2023-10-01T12:00:00Z"),  # unique line_id
+        Mock(
+            line_id="line2", planned_time="2025-10-01T23:06:00Z"
+        ),  # unique departure time
+    ]
+    filtered_departures = filter_identical_departures(departures)
+    assert len(filtered_departures) == 3  # Should be 3 unique departures
+
+
+def test_compare_line_ids_compare_with_year() -> None:
+    """Test compare_line_ids function."""
+
+    assert (
+        compare_line_ids("van:02067: :R:j25", "van:02067: :R:j25", compare_year=True)
+        is True
+    )
+    assert (
+        compare_line_ids("van:02067: :R:j25", "van:02067: :R:j26", compare_year=True)
+        is False
+    )
+
+
+def test_compare_line_ids_compare_without_year() -> None:
+    """Test compare_line_ids function."""
+
+    assert (
+        compare_line_ids("van:02067: :R:j25", "van:02067: :R:j25", compare_year=False)
+        is True
+    )
+    assert (
+        compare_line_ids("van:02067: :R:j25", "van:02067: :R:j80", compare_year=False)
+        is True
+    )
+
+
+def test_replace_year_in_id_xx_true() -> None:
+    """Test replace_year_in_id function."""
+    assert replace_year_in_id("van:02067: :R:j25", xx=True) == "van:02067: :R:jxx"
+    assert replace_year_in_id("van:02067: :R:s25", xx=True) == "van:02067: :R:s25"
+
+
+def test_replace_year_in_id_xx_false() -> None:
+    """Test replace_year_in_id function."""
+    current_year = datetime.now().strftime("%y")
+
+    assert (
+        replace_year_in_id("van:02067: :R:j20", xx=False)
+        == f"van:02067: :R:j{current_year}"
+    )
+    assert replace_year_in_id("van:02067: :R:s25", xx=False) == "van:02067: :R:s25"
+
+
+def test_get_unique_lines() -> None:
+    """Test get_unique_lines function."""
+    line1 = Mock(Line)
+    line1.name = "Line 1"
+    line1.id = "line1"
+    line1.destination = Mock()
+    line1.destination.name = "destination1"
+
+    line2 = Mock(Line)
+    line2.name = "Line 2"
+    line2.id = "line2"
+    line2.destination = Mock()
+    line2.destination.name = "destination2"
+
+    line3 = Mock(Line)
+    line3.name = "Line 3"
+    line3.id = "line1"  # Duplicate of line1
+    line3.destination = Mock()
+    line3.destination.name = "destination1"  # Same destination as line1
+
+    lines = [line1, line2, line3]
+    unique_lines = get_unique_lines(lines)
+
+    assert len(unique_lines) == 2
+    assert unique_lines[0].id == "line1"
+    assert unique_lines[1].id == "line2"
+
+
+class TestUnstableDepartureTime:
+    """Test UnstableDepartureTime class."""
+
+    def test_init(self):
+        """Test initialization of UnstableDepartureTime."""
+        departure = get_mock_departure("planned", "estimated")
+
+        udt = UnstableDepartureTime(departure)
+        assert udt.planned_time == "planned"
+        assert udt.estimated_time == "estimated"
+        assert udt.none_count_planned == 0
+
+    def test_get_planned_departure_time(self):
+        """Test get_planned_departure_time method."""
+        planned = datetime.now()
+
+        departure = get_mock_departure(planned, "estimated")
+
+        udt = UnstableDepartureTime(departure)
+        assert udt.planned_time == planned
+
+    def test_get_estimated_departure_time(self):
+        """Test get_planned_departure_time method."""
+        planned = datetime(2025, 5, 17, 15, 30)
+        estimated = datetime(2025, 5, 17, 15, 45)
+
+        departure = get_mock_departure(planned, estimated)
+
+        udt = UnstableDepartureTime(departure)
+        assert udt.estimated_time == estimated
+
+    def test_clear(self):
+        """Test get_planned_departure_time method."""
+        planned = datetime(2025, 5, 17, 15, 30)
+        estimated = datetime(2025, 5, 17, 15, 45)
+
+        departure = get_mock_departure(planned, estimated)
+
+        udt = UnstableDepartureTime(departure)
+
+        udt.clear()
+
+        assert udt.planned_time is None
+        assert udt.estimated_time is None
+        assert udt.none_count_planned == 0
+
+    def test_update_departure_is_none(self):
+        """Test update method."""
+        planned = datetime(2025, 5, 17, 15, 30)
+        estimated = datetime(2025, 5, 17, 15, 45)
+
+        departure = get_mock_departure(planned, estimated)
+
+        udt = UnstableDepartureTime(departure)
+        udt._none_count_planned = 1
+
+        udt.update(None)
+
+        assert udt.planned_time is None
+        assert udt.estimated_time is None
+        assert udt.none_count_planned == 0
+
+    def test_update_departure_planned_time_is_not_none(self):
+        """Test update method."""
+        planned_1 = datetime(2025, 5, 17, 15, 30)
+        estimated_1 = datetime(2025, 5, 17, 15, 45)
+
+        departure_1 = get_mock_departure(planned_1, estimated_1)
+
+        udt = UnstableDepartureTime(departure_1)
+        udt._none_count_planned = 1
+
+        planned_2 = datetime(2025, 5, 17, 15, 31)
+        estimated_2 = datetime(2025, 5, 17, 15, 46)
+
+        departure_2 = get_mock_departure(planned_2, estimated_2)
+
+        udt.update(departure_2)
+
+        assert udt.planned_time == planned_2
+        assert udt.estimated_time == estimated_2
+        assert udt.none_count_planned == 0
+
+    def test_update_departure_planned_time_is_none_1(self):
+        """Test update method."""
+        planned_1 = datetime(2025, 5, 17, 15, 30)
+        estimated_1 = datetime(2025, 5, 17, 15, 45)
+
+        departure_1 = get_mock_departure(planned_1, estimated_1)
+
+        udt = UnstableDepartureTime(departure_1)
+        udt._none_count_planned = 1
+
+        planned_2 = None
+        estimated_2 = datetime(2025, 5, 17, 15, 46)
+
+        departure_2 = get_mock_departure(planned_2, estimated_2)
+
+        udt.update(departure_2)
+
+        assert udt.none_count_planned == 2
+
+    def test_update_departure_planned_time_is_none_2(self):
+        """Test update method."""
+        planned_1 = datetime(2025, 5, 17, 15, 30)
+        estimated_1 = datetime(2025, 5, 17, 15, 45)
+
+        departure_1 = get_mock_departure(planned_1, estimated_1)
+
+        udt = UnstableDepartureTime(departure_1)
+        udt._none_count_planned = 10
+
+        planned_2 = None
+        estimated_2 = datetime(2025, 5, 17, 15, 46)
+
+        departure_2 = get_mock_departure(planned_2, estimated_2)
+
+        udt.update(departure_2)
+
+        assert udt.none_count_planned == 0
+        assert udt.planned_time is None

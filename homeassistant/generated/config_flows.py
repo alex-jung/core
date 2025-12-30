@@ -273,6 +273,7 @@ FLOWS = {
         "gree",
         "growatt_server",
         "guardian",
+        "ha_departures",
         "habitica",
         "hanna",
         "harmony",

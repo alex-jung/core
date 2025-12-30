@@ -1,0 +1,12 @@
+{
+  "domain": "ha_departures",
+  "name": "Public Transport Departures",
+  "codeowners": ["@alex-jung"],
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/ha_departures",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "loggers": ["apyefa"],
+  "quality_scale": "bronze",
+  "requirements": ["pytz==2025.2", "apyefa==1.1.4"]
+}

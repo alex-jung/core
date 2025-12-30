@@ -1,0 +1,60 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    },
+    "error": {
+      "connection_failed": "Connection to EFA endpoint failed. Try later again.",
+      "invalid_api_response": "Received invalid response from EFA endpoint",
+      "no_stop_found": "No locations found"
+    },
+    "step": {
+      "hubname": {
+        "data": {
+          "hub_name": "Hub name"
+        },
+        "data_description": {
+          "hub_name": "Name of the configuration"
+        }
+      },
+      "lines": {
+        "data": {
+          "lines": "Routes"
+        },
+        "data_description": {
+          "lines": "Routes to monitor departures for"
+        }
+      },
+      "stop": {
+        "data": {
+          "stop_name": "Stop name"
+        },
+        "data_description": {
+          "stop_name": "Name of the stop to monitor departures from"
+        }
+      },
+      "user": {
+        "data": {
+          "endpoint": "Endpoint",
+          "stop_name": "Stop name"
+        },
+        "data_description": {
+          "endpoint": "Select EFA API endpoint to connect to",
+          "stop_name": "Name of the stop to monitor departures from"
+        }
+      }
+    }
+  },
+  "options": {
+    "abort": {
+      "no_changes_configured": "No changes configured"
+    },
+    "step": {
+      "init": {
+        "data": {
+          "lines": "Routes"
+        }
+      }
+    }
+  }
+}

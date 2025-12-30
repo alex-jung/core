@@ -500,6 +500,9 @@ aprslib==0.7.2
 # homeassistant.components.apsystems
 apsystems-ez1==2.7.0
 
+# homeassistant.components.ha_departures
+apyefa==1.1.4
+
 # homeassistant.components.aranet
 aranet4==2.5.1
 
@@ -2206,6 +2209,9 @@ pytrafikverket==1.1.1
 
 # homeassistant.components.v2c
 pytrydan==0.8.0
+
+# homeassistant.components.ha_departures
+pytz==2025.2
 
 # homeassistant.components.uptimerobot
 pyuptimerobot==22.2.0
