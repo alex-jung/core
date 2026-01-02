@@ -65,5 +65,7 @@ class DeparturesDataUpdateCoordinator(DataUpdateCoordinator[list[Departure]]):
             except EfaResponseInvalid as err:
                 _LOGGER.error("EFA response invalid")
                 raise UpdateFailed(err) from err
+            except ValueError | TimeoutError as err:
+                raise UpdateFailed(f"The endpoint is not available: {err}") from err
 
         return self._data

@@ -14,7 +14,8 @@ rules:
   docs-actions:
     status: exempt
     comment: This integration does not register any actions
-  docs-high-level-description: done
+  docs-high-level-description:
+    status: done
   docs-installation-instructions: done
   docs-removal-instructions: done
   entity-event-setup:
@@ -23,9 +24,7 @@ rules:
   entity-unique-id: done
   has-entity-name: done
   runtime-data: done
-  test-before-configure:
-    status: exempt
-    comment: This integration fully relies on auto-discovery
+  test-before-configure: done
   test-before-setup: done
   unique-config-entry: done
 

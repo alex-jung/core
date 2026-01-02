@@ -1,8 +1,4 @@
-"""Custom integration to integrate Public Transport Departures with Home Assistant.
-
-For more details about this integration, please refer to
-https://github.com/alex-jung/ha-departures
-"""
+"""ha_departures integration."""
 
 from dataclasses import dataclass
 import logging

@@ -72,6 +72,8 @@ class DeparturesSensor(
 ):
     """ha_departures Sensor class."""
 
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         hass: core.HomeAssistant,
